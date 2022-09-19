@@ -1,10 +1,10 @@
-import { PutObjectCommand } from "@aws-sdk/client-s3";
-import pkg from "aws-sdk";
-import dotenv from "dotenv";
-import express from "express";
-import multer from "multer";
-import { v4 as uuid } from "uuid";
-import { s3Client } from "./libs/s3Client.js";
+import { ListObjectsV2Command, PutObjectCommand } from "@aws-sdk/client-s3"
+import pkg from "aws-sdk"
+import dotenv from "dotenv"
+import express from "express"
+import multer from "multer"
+import { v4 as uuid } from "uuid"
+import { s3Client } from "./libs/s3Client.js"
 const { S3 } = pkg;
 
 dotenv.config();
@@ -68,18 +68,41 @@ app.post("/upload", upload.array("file"), async (req, res) => {
   }
 });
 
+app.get("/list", async (req, res) => {
+  let r = await s3Client.send(new ListObjectsV2Command({ Bucket: BUCKET }));
+  let x = r.Contents.map((item) => item.Key);
+  res.send(x);
+});
+
+app.get("/download/:filename", async (req, res) => {
+  const fileName = req.params.filename;
+  const file = await s3Client.send(
+    new GetObjectCommand({ Bucket: BUCKET, Key: fileName })
+  );
+  res.send(file.Body);
+});
+
+app.delete("/delete/:filename", async (req, res) => {
+  const filename = req.params.filename;
+  await s3Client.send(
+    new DeleteObjectCommand({ Bucket: BUCKET, Key: filename })
+  );
+  res.send("File Deleted Successfully");
+});
+
 app.use((error, req, res, next) => {
   if (error instanceof multer.MulterError) {
-    if (error.code === "LIMIT_FILE_SIZE") {
-      return res.status(400).json({
-        message: "file is too large",
-      });
-    }
-
-    if (error.code === "LIMIT_FILE_COUNT") {
-      return res.status(400).json({
-        message: "File limit reached",
-      });
+    switch (error.code) {
+      case "LIMIT_FILE_COUNT":
+        return res.status(400).json({
+          message: "Too many files to upload",
+        });
+      case "LIMIT_FILE_SIZE":
+        return res.status(400).json({
+          message: "File is too large",
+        });
+      default:
+        break;
     }
   }
 });
