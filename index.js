@@ -10,7 +10,7 @@ const { S3 } = pkg;
 dotenv.config();
 
 const app = express();
-const port = 3000;
+const port = 8080;
 
 const s3Uploadv2 = async (files) => {
   const s3 = new S3();
