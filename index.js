@@ -58,6 +58,10 @@ const upload = multer({
   storage,
   limits: { fileSize: 10_000_000, files: 5 },
 });
+
+app.get("/", (req, res) => {
+  res.send("Hello World!");
+});
 app.post("/upload", upload.array("file"), async (req, res) => {
   try {
     const results = await s3Uploadv3(req.files);
