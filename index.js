@@ -76,7 +76,9 @@ app.post("/upload", upload.array("file"), async (req, res) => {
 });
 
 app.get("/list", async (req, res) => {
-  let r = await s3Client.send(new ListObjectsV2Command({ Bucket: BUCKET }));
+  let r = await s3Client.send(
+    new ListObjectsV2Command({ Bucket: process.env.AWS_BUCKET_NAME })
+  );
   let x = r.Contents.map((item) => item.Key);
   res.send(x);
 });
@@ -84,7 +86,7 @@ app.get("/list", async (req, res) => {
 app.get("/download/:filename", async (req, res) => {
   const fileName = req.params.filename;
   const file = await s3Client.send(
-    new GetObjectCommand({ Bucket: BUCKET, Key: fileName })
+    new GetObjectCommand({ Bucket: process.env.AWS_BUCKET_NAME, Key: fileName })
   );
   res.send(file.Body);
 });
@@ -92,7 +94,10 @@ app.get("/download/:filename", async (req, res) => {
 app.delete("/delete/:filename", async (req, res) => {
   const filename = req.params.filename;
   await s3Client.send(
-    new DeleteObjectCommand({ Bucket: BUCKET, Key: filename })
+    new DeleteObjectCommand({
+      Bucket: process.env.AWS_BUCKET_NAME,
+      Key: filename,
+    })
   );
   res.send("File Deleted Successfully");
 });
