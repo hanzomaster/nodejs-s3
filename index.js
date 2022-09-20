@@ -1,4 +1,7 @@
-import { ListObjectsV2Command, PutObjectCommand } from "@aws-sdk/client-s3"
+import {
+  DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command,
+  PutObjectCommand
+} from "@aws-sdk/client-s3"
 import pkg from "aws-sdk"
 import dotenv from "dotenv"
 import express from "express"
