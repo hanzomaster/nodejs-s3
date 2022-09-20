@@ -1,27 +1,29 @@
 import {
-  DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command,
-  PutObjectCommand
-} from "@aws-sdk/client-s3"
-import pkg from "aws-sdk"
-import dotenv from "dotenv"
-import express from "express"
-import multer from "multer"
-import { v4 as uuid } from "uuid"
-import { s3Client } from "./libs/s3Client.js"
+  DeleteObjectCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+} from "@aws-sdk/client-s3";
+import pkg from "aws-sdk";
+import dotenv from "dotenv";
+import express from "express";
+import multer from "multer";
+import { nanoid } from "nanoid";
+import { s3Client } from "./libs/s3Client.js";
 const { S3 } = pkg;
 
 dotenv.config();
 
 const app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 const port = 8080;
 
 const s3Uploadv2 = async (files) => {
   const s3 = new S3();
-
   const params = files.map((file) => {
     return {
       Bucket: process.env.AWS_BUCKET_NAME,
-      Key: `uploads/${uuid()}-${file.originalname}`,
+      Key: `uploads/${nanoid()}-${file.originalname}`,
       Body: file.buffer,
     };
   });
@@ -33,7 +35,7 @@ const s3Uploadv3 = async (files) => {
   const params = files.map((file) => {
     return {
       Bucket: process.env.AWS_BUCKET_NAME,
-      Key: `uploads/${uuid()}-${file.originalname}`,
+      Key: `uploads/${nanoid()}-${file.originalname}`,
       Body: file.buffer,
     };
   });
@@ -50,7 +52,7 @@ const s3Uploadv3 = async (files) => {
 //   },
 //   filename: (req, file, cb) => {
 //     const { originalname } = file
-//     cb(null, `${uuid()}-${originalname}`)
+//     cb(null, `${nanoid()}-${originalname}`)
 //   },
 // })
 
@@ -65,38 +67,61 @@ const upload = multer({
 app.get("/", (req, res) => {
   res.send("Hello World!");
 });
+
 app.post("/upload", upload.array("file"), async (req, res) => {
   try {
+    console.log(req.files);
     const results = await s3Uploadv3(req.files);
     console.log(results);
-    return res.json({ status: "success" });
+    const names = req.files?.map((file) => file.originalname);
+    return res.json({
+      status: results[0].$metadata.httpStatusCode,
+      message: `Uploaded ${names} successfully`,
+    });
   } catch (err) {
     console.log(err);
   }
 });
 
 app.get("/list", async (req, res) => {
-  let r = await s3Client.send(
+  let list = await s3Client.send(
     new ListObjectsV2Command({ Bucket: process.env.AWS_BUCKET_NAME })
   );
-  let x = r.Contents.map((item) => item.Key);
-  res.send(x);
+  let content = list.Contents.map((item) => item.Key);
+  res.send(content);
 });
 
-app.get("/download/:filename", async (req, res) => {
-  const fileName = req.params.filename;
-  const file = await s3Client.send(
-    new GetObjectCommand({ Bucket: process.env.AWS_BUCKET_NAME, Key: fileName })
+app.get("/download", async (req, res) => {
+  const fileName = req.query.path;
+  // await s3Client.send(
+  //   new GetObjectCommand({
+  //     Bucket: process.env.AWS_BUCKET_NAME,
+  //     Key: fileName,
+  //   })
+  // );
+  const s3 = new S3();
+  s3.getObject(
+    {
+      Bucket: process.env.AWS_BUCKET_NAME,
+      Key: fileName,
+    },
+    (err, data) => {
+      if (err) {
+        res.json({ message: "File not found" });
+      }
+      res.attachment(fileName);
+      res.type(data.ContentType);
+      res.send(data.Body);
+    }
   );
-  res.send(file.Body);
 });
 
 app.delete("/delete/:filename", async (req, res) => {
-  const filename = req.params.filename;
+  const fileName = req.params.filename;
   await s3Client.send(
     new DeleteObjectCommand({
       Bucket: process.env.AWS_BUCKET_NAME,
-      Key: filename,
+      Key: fileName,
     })
   );
   res.send("File Deleted Successfully");
